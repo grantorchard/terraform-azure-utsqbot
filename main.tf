@@ -80,18 +80,22 @@ resource azurerm_sql_firewall_rule "uts-qbot" {
 }
 
 resource azuread_application "uts-qbot-api" {
-  name = "${var.deployment_name}-api"
-  homepage                   = "https://${azurerm_app_service.uts-qbot-api.default_site_hostname}"
-  identifier_uris            = []
-  reply_urls                 = [
-                                  "https://${azurerm_app_service.uts-qbot-questions.default_site_hostname}/app-silent-end",
-                                  "https://${azurerm_app_service.uts-qbot-dashboard.default_site_hostname}/app-silent-end"
-                                ]
+  name            = "${var.deployment_name}-api"
+  homepage        = "https://${azurerm_app_service.uts-qbot-api.default_site_hostname}"
+  identifier_uris = []
+  reply_urls = [
+    "https://${azurerm_app_service.uts-qbot-questions.default_site_hostname}/app-silent-end",
+    "https://${azurerm_app_service.uts-qbot-dashboard.default_site_hostname}/app-silent-end"
+  ]
   available_to_other_tenants = true
   oauth2_allow_implicit_flow = true
   type                       = "webapp/api"
 }
 
+/*
+resource template_file {
+}
+*/
 resource azuread_application "uts-qbot-graph" {
   name                       = "${var.deployment_name}-graph"
   identifier_uris            = []
@@ -103,42 +107,57 @@ resource azuread_application "uts-qbot-graph" {
   required_resource_access {
     resource_app_id = "00000003-0000-0000-c000-000000000000" # This app_id is the MS Graph API
     resource_access {
-      id = "4e46008b-f24c-477d-8fff-7bb4ec7aafe0"
+      id   = "4e46008b-f24c-477d-8fff-7bb4ec7aafe0"
       type = "Scope" # Note that 'Scope' is 'Delegated', and Application is 'Role'
     }
     resource_access {
-      id = "89fe6a52-be36-487e-b7d8-d061c450a026"
+      id   = "89fe6a52-be36-487e-b7d8-d061c450a026"
       type = "Scope"
     }
     resource_access {
-      id = "a154be20-db9c-4678-8ab7-66f6cc099a59"
+      id   = "a154be20-db9c-4678-8ab7-66f6cc099a59"
       type = "Scope"
     }
   }
 }
 
 resource random_password "uts-qbot-graph" {
-  length = 32
+  length  = 32
   special = true
 }
 
 
 resource azuread_application_password "uts-qbot-graph" {
   application_object_id = azuread_application.uts-qbot-graph.id
-  value          = random_password.uts-qbot-graph.result
-  end_date       = timeadd(timestamp(), "8766h")
+  value                 = random_password.uts-qbot-graph.result
+  end_date              = timeadd(timestamp(), "8766h")
   lifecycle {
     ignore_changes = [end_date]
   }
 }
 
 resource azuread_application "uts-qbot-registration" {
-  name = "${var.deployment_name}-api"
+  name                       = "${var.deployment_name}-api"
   identifier_uris            = []
   reply_urls                 = []
   available_to_other_tenants = true
   oauth2_allow_implicit_flow = true
   type                       = "webapp/api"
+}
+
+resource random_password "uts-qbot-registration" {
+  length  = 32
+  special = true
+}
+
+
+resource azuread_application_password "uts-qbot-registration" {
+  application_object_id = azuread_application.uts-qbot-registration.id
+  value                 = random_password.uts-qbot-registration.result
+  end_date              = timeadd(timestamp(), "8766h")
+  lifecycle {
+    ignore_changes = [end_date]
+  }
 }
 
 resource azurerm_bot_channels_registration "uts-qbot" {
@@ -165,13 +184,13 @@ resource azurerm_cognitive_account "uts-qbot" {
 */
 
 resource random_string "uts-qbot" {
-  length = 8
+  length  = 8
   special = false
-  upper = false
+  upper   = false
 }
 
 resource azurerm_storage_account "uts-qbot" {
-  name                     = replace("${var.deployment_name}${random_string.uts-qbot.result}", "-", "")
+  name = replace("${var.deployment_name}${random_string.uts-qbot.result}", "-", "")
   /*
   'Error: name ("uts-qbot") can only consist of lowercase letters and numbers, and must be between 3 and 24 characters long'
   This replace function needs to be rewritten to capture the above rule in its entirety. This is a hack to get past the default
@@ -189,4 +208,18 @@ resource azurerm_function_app "uts-qbot" {
   resource_group_name       = azurerm_resource_group.uts-qbot.name
   app_service_plan_id       = azurerm_app_service_plan.uts-qbot.id
   storage_connection_string = azurerm_storage_account.uts-qbot.primary_connection_string
+
+  connection_string {
+    name = var.deployment_name
+    type = "SQLServer"
+    value = "Server=tcp:${azurerm_sql_server.uts-qbot.fully_qualified_domain_name},1433;Initial Catalog=${azurerm_sql_database.uts-qbot.name};Persist Security Info=False;User ID=${azurerm_sql_server.uts-qbot.administrator_login};Password=${azurerm_sql_server.uts-qbot.administrator_login_password};MultipleActiveResultSets=True;App=EntityFramework;"
+  }
 }
+
+/*
+"'Server=tcp:${azurerm_sql_server.uts=qbot.fully_qualified_domain_name},1433;
+Initial Catalog=${azurerm_sql_database.uts-qbot.name};
+Persist Security Info=False;User ID=${azurerm_sql_server.uts-qbot.administrator_login};
+Password=${azurerm_sql_server.uts-qbot.administrator_login_password};
+MultipleActiveResultSets=True;App=EntityFramework;'"
+*/
