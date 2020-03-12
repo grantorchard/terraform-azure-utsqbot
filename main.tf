@@ -2,21 +2,6 @@ provider "azurerm" {
   features {}
 }
 
-/*
-data aws_route53_zone "this" {
-  name         = var.dns_zone_name
-  private_zone = false
-}
-
-resource "aws_route53_record" "qbot" {
-  zone_id = data.aws_route53_zone.this.zone_id
-  name    = "${var.deployment_name}.${var.dns_zone_name}"
-  type    = "A"
-  ttl     = 300
-}
-*/
-
-
 resource azurerm_resource_group "uts-qbot" {
   name     = var.deployment_name
   location = var.deployment_location
@@ -102,7 +87,10 @@ resource azuread_application "uts-qbot-api" {
   name = "${var.deployment_name}-api"
   homepage                   = "https://${azurerm_app_service.uts-qbot-api.default_site_hostname}"
   identifier_uris            = []
-  reply_urls                 = ["https://${azurerm_app_service.uts-qbot-questions.default_site_hostname}/app-silent-end","https://${azurerm_app_service.uts-qbot-dashboard.default_site_hostname}/app-silent-end"]
+  reply_urls                 = [
+                                  "https://${azurerm_app_service.uts-qbot-questions.default_site_hostname}/app-silent-end",
+                                  "https://${azurerm_app_service.uts-qbot-dashboard.default_site_hostname}/app-silent-end"
+                                ]
   available_to_other_tenants = true
   oauth2_allow_implicit_flow = true
   type                       = "webapp/api"
@@ -140,7 +128,7 @@ resource random_password "uts-qbot-graph" {
 
 
 resource azuread_application_password "uts-qbot-graph" {
-  application_id = azuread_application.uts-qbot-graph.object_id
+  application_object_id = azuread_application.uts-qbot-graph.id
   value          = random_password.uts-qbot-graph.result
   end_date       = timeadd(timestamp(), "8766h")
   lifecycle {
@@ -166,15 +154,16 @@ resource azurerm_bot_channels_registration "uts-qbot" {
   endpoint            = "https://${azurerm_app_service.uts-qbot-questions.default_site_hostname}/api/messages"
 }
 
+/* Commenting this out for now, there is a PR (https://github.com/terraform-providers/terraform-provider-azurerm/pull/5778#pullrequestreview-371544928)
+   that will add the required block to the schema to support api_properties as needed by QnAMaker.
 resource azurerm_cognitive_account "uts-qbot" {
   name                = var.deployment_name
-  location            = azurerm_resource_group.uts-qbot.location
+  location            = "westus" # https://github.com/microsoft/botframework-solutions/issues/1454
   resource_group_name = azurerm_resource_group.uts-qbot.name
   kind                = "QnAMaker"
-
-  sku_name = "S0"
-
-  tags = {
-    Acceptance = "Test"
+  api_properties = {
+    endpoint            = "https://${var.deployment_name}-cognitiveservices.azure.com/qnamaker/v4.0"
   }
+  sku_name = "S0"
 }
+*/
