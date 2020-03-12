@@ -69,10 +69,6 @@ resource azurerm_sql_database "uts-qbot" {
   resource_group_name = azurerm_resource_group.uts-qbot.name
   location            = var.deployment_location
   server_name         = azurerm_sql_server.uts-qbot.name
-
-  tags = {
-    environment = "production"
-  }
 }
 
 resource azurerm_sql_firewall_rule "uts-qbot" {
@@ -167,3 +163,30 @@ resource azurerm_cognitive_account "uts-qbot" {
   sku_name = "S0"
 }
 */
+
+resource random_string "uts-qbot" {
+  length = 8
+  special = false
+  upper = false
+}
+
+resource azurerm_storage_account "uts-qbot" {
+  name                     = replace("${var.deployment_name}${random_string.uts-qbot.result}", "-", "")
+  /*
+  'Error: name ("uts-qbot") can only consist of lowercase letters and numbers, and must be between 3 and 24 characters long'
+  This replace function needs to be rewritten to capture the above rule in its entirety. This is a hack to get past the default
+  name used in variables.tf
+  */
+  resource_group_name      = azurerm_resource_group.uts-qbot.name
+  location                 = azurerm_resource_group.uts-qbot.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource azurerm_function_app "uts-qbot" {
+  name                      = "${var.deployment_name}-function"
+  location                  = azurerm_resource_group.uts-qbot.location
+  resource_group_name       = azurerm_resource_group.uts-qbot.name
+  app_service_plan_id       = azurerm_app_service_plan.uts-qbot.id
+  storage_connection_string = azurerm_storage_account.uts-qbot.primary_connection_string
+}
